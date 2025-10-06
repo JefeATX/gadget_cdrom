@@ -1,9 +1,7 @@
-#! /bin/bash -eu
-
-if ! mountpoint -q /iso; then
-    exit 1
-fi
+#!/bin/bash -eu
 
 EXT=${1:-iso}
+# Change this to your image directory
+IMGDIR="/opt/gadget_cdrom"
 
-find /iso -type f -iname "*.$EXT" -not -path '*/.*' -print0
+find "$IMGDIR" -type f -iname "*.$EXT" -not -path '*/.*' -print0
