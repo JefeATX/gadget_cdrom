@@ -127,6 +127,7 @@ class State:
         self._mode = None
         self._iso_name = None
         self._iso_ls_cache = None
+        self._iso_ls_cache_type = None
         self.set_mode(MODE_CD)
 
     def inserted_iso(self):
@@ -134,24 +135,22 @@ class State:
             return os.path.basename(self._iso_name)
         return None
 
-def insert_iso(self):
-    self.remove_iso()
-    iso_list = self.iso_ls()
-    if not iso_list:
-        LOGGER.error("No image available.")
-        return
+    def insert_iso(self):
+        self.remove_iso()
+        iso_list = self.iso_ls()
+        if not iso_list:
+            LOGGER.error("No image available.")
+            return
 
-    iso_name = iso_list[self.get_iso_select()]
-    LOGGER.info("Inserting %s: %s", self._mode, iso_name)
-    self._iso_name = iso_name
+        iso_name = iso_list[self.get_iso_select()]
+        LOGGER.info("Inserting %s: %s", self._mode, iso_name)
+        self._iso_name = iso_name
 
-    if iso_name.endswith(".cue"):
-        # Mount BIN/CUE using cdemu (make sure cdemu is installed on your Pi!)
-        subprocess.check_call(["cdemu", "load", "0", iso_name])
-    else:
-        # Original ISO mounting
-        script = os.path.join(APP_DIR, "insert_iso.sh")
-        subprocess.check_call((script, iso_name, self._mode))
+        if iso_name.endswith(".cue"):
+            subprocess.check_call(["cdemu", "load", "0", iso_name])
+        else:
+            script = os.path.join(APP_DIR, "insert_iso.sh")
+            subprocess.check_call((script, iso_name, self._mode))
 
     def get_iso_select(self):
         return self._iso_select
@@ -171,41 +170,39 @@ def insert_iso(self):
         self._iso_select -= 1
         return True
 
-def iso_ls(self, paths=True):
-    if self._mode not in BROWSE_MODES:
-        raise Exception("invalid mode", self._mode)
+    def iso_ls(self, paths=True):
+        if self._mode not in BROWSE_MODES:
+            raise Exception("invalid mode", self._mode)
 
-    if self._iso_ls_cache and self._iso_ls_cache_type == self._mode:
-        if paths:
-            return self._iso_ls_cache
-        return [os.path.basename(x) for x in self._iso_ls_cache]
+        if self._iso_ls_cache and self._iso_ls_cache_type == self._mode:
+            if paths:
+                return self._iso_ls_cache
+            return [os.path.basename(x) for x in self._iso_ls_cache]
 
-    script = os.path.join(APP_DIR, "list_iso.sh")
-    # Get files for all extensions for current mode
-    exts = FILE_EXTS[self._mode]
-    if isinstance(exts, str):
-        exts = [exts]
-    iso_list = []
-    for ext in exts:
-        output = subprocess.check_output((script, ext))
-        iso_list += output.decode().split("\0")
-    # For CUE files, show only .cue if paired with .bin
-    final_list = []
-    for f in sorted(filter(len, iso_list)):
-        if f.endswith(".cue"):
-            bin_file = f[:-4] + ".bin"
-            if os.path.exists(bin_file):
+        script = os.path.join(APP_DIR, "list_iso.sh")
+        exts = FILE_EXTS[self._mode]
+        if isinstance(exts, str):
+            exts = [exts]
+        iso_list = []
+        for ext in exts:
+            output = subprocess.check_output((script, ext))
+            iso_list += output.decode().split("\0")
+        final_list = []
+        for f in sorted(filter(len, iso_list)):
+            if f.endswith(".cue"):
+                bin_file = f[:-4] + ".bin"
+                if os.path.exists(bin_file):
+                    final_list.append(f)
+            else:
                 final_list.append(f)
-        else:
-            final_list.append(f)
-    if len(final_list) < self._iso_select:
-        self._iso_select = 0
-    self._iso_ls_cache_type = self._mode
-    self._iso_ls_cache = final_list
-    if paths:
-        return final_list
-    LOGGER.debug("isolist: %r", [os.path.basename(x) for x in self._iso_ls_cache])
-    return [os.path.basename(x) for x in self._iso_ls_cache]
+        if len(final_list) < self._iso_select:
+            self._iso_select = 0
+        self._iso_ls_cache_type = self._mode
+        self._iso_ls_cache = final_list
+        if paths:
+            return final_list
+        LOGGER.debug("isolist: %r", [os.path.basename(x) for x in self._iso_ls_cache])
+        return [os.path.basename(x) for x in self._iso_ls_cache]
 
     def get_mode(self):
         return self._mode
@@ -245,7 +242,6 @@ def iso_ls(self, paths=True):
     def shutdown(self):
         script = os.path.join(APP_DIR, "shutdown.sh")
         subprocess.check_call((script,))
-
 
 class Display:
     def __init__(self):
